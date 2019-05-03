@@ -41,7 +41,6 @@
       Read(IIn,*) Array_Input(i)
       EndDo
       Close(Unit=IIn)
-       
 
       Write(*,*)' The matrix loaded (column-wise) lower-tri packed:'
       Call SymmetricPacked2Matrix_LowerPac(NDim,Array_Input,Matrix)
@@ -147,4 +146,3 @@
 !
       Return
       End Subroutine Print_Matrix_Full_Real
-

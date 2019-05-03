@@ -64,13 +64,11 @@
 !     Array_Input.
 !
 !
-
       Do i=1, M
       Do j=1, N
       AMatOut(i,j) = ArrayIn(i+(j+1)*M)
       EndDo
-      EndDo    
-
+      EndDo
       Return
       End Subroutine Packed2Matrix_ColumnWise
 
@@ -91,10 +89,7 @@
 !
 !     Loop through the elements of AMatOut and fill them appropriately from
 !     Array_Input.
-!
-
-
-  
+!  
       Do i=1, N
       Do j=1, M
       AMatOut(i,j) = ArrayIn(j+(i-1)*N)
@@ -139,4 +134,3 @@
 !
       Return
       End Subroutine Print_Matrix_Full_Real
-
