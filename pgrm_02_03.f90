@@ -30,11 +30,9 @@
       Allocate(Array_Input((NDim*(NDim+1))/2),Matrix(NDim,NDim))
       Allocate(EVals(NDim),EVecs(NDim,NDim),Temp_Vector(3*NDim))
       Allocate(Temp_Matrix(NDim,NDim))
-!
-! *************************************************************************
-! WRITE CODE HERE TO READ THE ARRAY ELEMENTS FROM THE INPUT FILE.
-! *************************************************************************
-!
+      Do i=1, (NDim*(NDim+1))/2
+      Read(IIn,*) Array_Input(i)
+      Enddo
       Close(Unit=IIn)
 !
 !     Convert Array_Input to Matrix and print the matrix.
