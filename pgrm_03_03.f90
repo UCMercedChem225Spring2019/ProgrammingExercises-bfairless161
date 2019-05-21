@@ -55,10 +55,42 @@
         moCoefficients(nBasis,nBasis),densityMatrix(nBasis,nBasis),  &
         tempSqMatrix(nBasis,nBasis),SSPEV_Scratch(nBasis,3))
 
-!
-!
-!
+      Call Get_Command_Argument(3,cmdlineArg)
+      Open(Unit=unitIn,File=TRIM(cmdlineArg),Status='OLD',IOStat=IError)
+      If(IError.ne.0) then
+        Write(*,*)' Error opening input file.1'
+        STOP
+      endIf
+      DO i = 1, lenSym !Read triangle elements
+         read(UnitIn,*) symCoreHamiltonian(i)
+      END DO
+      Close(Unit=UnitIn)
+        
 
+      Call Get_Command_Argument(4,cmdlineArg)
+      Open(Unit=unitIn,File=TRIM(cmdlineArg),Status='OLD',IOStat=IError)
+      If(IError.ne.0) then
+        Write(*,*)' Error opening input file.2'
+        STOP
+      endIf
+      DO i = 1, lenSym !Read triangle elements
+         read(unitIn,*) symOverlap(i)
+      END DO
+      Close(Unit=unitIn)
+
+      Call Get_Command_Argument(5,cmdlineArg)
+      Open(Unit=unitIn,File=TRIM(cmdlineArg),Status='OLD',IOStat=IError)
+      If(IError.ne.0) then
+        Write(*,*)' Error opening input file.3'
+        STOP
+      endIf
+      DO i = 1, lenSym !Read triangle elements
+         read(unitIn,*) symFock(i)
+      END DO
+      Close(Unit=unitIn)
+
+      call SymmetricPacked2Matrix_UpperPacked(nBasis,symOverlap,& 
+        invSqrtOverlap)
 
 !
 !     Form the square-root of the overlap matrix.
@@ -70,7 +102,7 @@
       call SymmetricPacked2Matrix_UpperPacked(nBasis,symFock,sqFock)
       tempSqMatrix = MatMul(invSqrtOverlap,sqFock)
       fockTilde = MatMul(tempSqMatrix,invSqrtOverlap)
-      call Sq2SymMatrix(nBasis,fockTilde,tempSymMatrix)
+      call SymSqMatx2(nDim,sq,sym)
       call SSPEV('V','U',nBasis,tempSymMatrix,moEnergies,  &
         moCoefficients,nBasis,SSPEV_Scratch,iError)
       If(iError.ne.0) then
@@ -87,3 +119,157 @@
 !
 !
 !
+
+
+      densityMatrix=2*matmul(mocoefficients,transpose(moCoefficients))
+      write(*,*) "Density Matrix: "
+      call Print_Matrix_Full_Real(densitymatrix,nbasis,nbasis)
+      call SymmetricPacked2Matrix_UpperPacked(nBasis, &
+           symCoreHamiltonian,sqCoreHamiltonian) 
+      tempSqMatrix = MatMul(densityMatrix,sqCoreHamiltonian)
+      
+      do i = 1,nbasis
+        oneElectronEnergy = oneElectronEnergy + tempSqMatrix(i,i)
+      enddo
+
+      write(*,*)' One electron energy contribution: ',oneElectronEnergy
+      tempSqMatrix = sqFock - sqCoreHamiltonian  
+      tempSqMatrix = (MatMul(densityMatrix,tempSqMatrix))/2
+      Do i=1, nbasis
+        twoElectronEnergy = twoElectronEnergy + tempSqMatrix(i,i)
+      enddo
+
+      write(*,*)'Two electron energy contribution: ', &
+        twoelectronenergy
+      call SymmetricPacked2Matrix_UpperPacked(nBasis, &
+           symOverlap, tempSqMatrix)
+      tempSqMatrix = MatMul(densityMatrix,tempSqMatrix)
+      
+      
+      
+      do i=1, nBasis 
+        tracePS = tracePS + tempSqMatrix(i,i)
+      enddo
+      write(*,*)' The number of electrons is: ',tracePS
+      end program pgrm_03_03
+     
+
+       Subroutine SymmetricPacked2Matrix_UpperPacked(N,ArrayIn,AMatOut)
+!
+!     This subroutine accepts an array, ArrayIn, that is (N*(N+1))/2
+!     long.
+!     It then converts that form to the N-by-N matrix AMatOut taking
+!     ArrayIn to be in upper-packed storage form. Note: The storage mode
+!     also assumes the upper-packed storage is packed by columns.
+!
+      Implicit None
+      Integer,Intent(In)::N
+      Real,Dimension((N*(N+1))/2),Intent(In)::ArrayIn
+      Real,Dimension(N,N),Intent(Out)::AMatOut
+!
+      Integer::i,j,k,s
+!
+!     Loop through the elements of AMatOut and fill them appropriately
+!     from
+!     Array_Input.
+!
+!
+! ********************************************************
+         Do j=1,N
+          Do i = 1,N
+            AMatOut(i,j) = ArrayIn(j*(j-1)/2+i)
+        EndDo
+        EndDo
+         Do  i = 1,N
+          Do  j = 1,i
+             AMatOut(i,j) = AMatOut(j,i)
+        EndDo
+        EndDo
+
+
+      Return
+      End Subroutine SymmetricPacked2Matrix_UpperPacked
+
+      Subroutine InvSQRT_SymMatrix(nDim,inputSymMatrix,invSqrtInputMatrix)
+
+      IMPLICIT NONE
+      Integer, INTENT(IN)  :: nDim
+      Real,Dimension((nDim*(nDim+1))/2),INTENT(IN) :: inputSymMatrix
+      Real,Dimension(nDim,nDim),  INTENT(OUT) :: invSqrtInputMatrix
+
+      Integer:: i,j,k,IError,s
+      Real,Dimension(:,:), Allocatable::EVecs, Temp_Matrix,EValMatx
+      Real,Dimension(:), Allocatable::EVals, Temp_Vector,TempDump
+      Allocate (EVals(nDim), EVecs(nDim,nDim),
+        Temp_Vector(3*nDim),EValMatx(nDim,nDim))
+      Allocate (Temp_Matrix(nDim,nDim),TempDump((nDim*(nDim+1))/2))
+      Do i=1,(nDim*(nDim+1))/2
+        TempDump(i) = inputSymMatrix(i)
+      Enddo
+      Call SSPEV("V", "U", nDim, TempDump, EVals, EVecs,nDim, &
+         Temp_Vector,IError)
+
+        Do i=1,nDim
+          EValMatx(i,i) = 1/(sqrt(EVals(i)))
+        Enddo
+
+        Mat = Matmul(Matmul(Evecs,Evalmay),transpose(Evecs))
+        RETURN
+
+      END SUBROUTINE InvSQRT_SymMatrix
+
+      Subroutine Print_Matrix_Full_Real(AMat,M,N)
+!
+!     This subroutine prints a real matrix that is fully dimension -
+!     i.e.,
+!     not stored in packed form. AMat is the matrix, which is
+!     dimensioned
+!     (M,N).
+!
+!     The output of this routine is sent to unit number 6 (set by the
+!     local
+!     parameter integer IOut).
+!
+!
+!     Variable Declarations
+!
+      implicit none
+      integer,intent(in)::M,N
+      real,dimension(M,N),intent(in)::AMat
+!
+!     Local variables
+      integer,parameter::IOut=6,NColumns=5
+      integer::i,j,IFirst,ILast
+!
+ 1000 Format(1x,A)
+ 2000 Format(5x,5(7x,I7))
+ 2010 Format(1x,I7,5F14.6)
+!
+      Do IFirst = 1,N,NColumns
+        ILast = Min(IFirst+NColumns-1,N)
+        write(IOut,2000) (i,i=IFirst,ILast)
+        Do i = 1,M
+          write(IOut,2010) i,(AMat(i,j),j=IFirst,ILast)
+        endDo
+      endDo
+!
+      Return
+      End Subroutine Print_Matrix_Full_Real
+
+       Subroutine SymSqMatx2(nDim,sq,sym)
+        
+        Implicit None
+        Integer, Intent (In)::nDim
+        Real, Dimension (nDim, nDim),Intent(In)::sq
+        Real, Dimension ((nDim*(nDim+1))/2),Intent(Out)::sym
+
+        Integer::i,j
+
+        Do j=1,nDim
+           Do i=1,j
+              sum(j*(j-1)/2+i) = sq(i,j)
+        Enddo
+        Enddo
+
+        End Subroutine SymSqMatx2
+
